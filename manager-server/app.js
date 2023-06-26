@@ -1,12 +1,15 @@
-const Koa = require('koa')
-const app = new Koa()
-const views = require('koa-views')
-const json = require('koa-json')
-const onerror = require('koa-onerror')
-const bodyparser = require('koa-bodyparser')
-const log4js = require('./utils/log4j')
-const users = require('./routes/users')
-const router = require('koa-router')()
+const Koa = require('koa');
+const app = new Koa();
+const views = require('koa-views');
+const json = require('koa-json');
+const onerror = require('koa-onerror');
+const bodyparser = require('koa-bodyparser');
+const log4js = require('./utils/log4j');
+const users = require('./routes/users');
+const router = require('koa-router')();
+const jwt = require('jsonwebtoken');
+const koajwt = require('koa-jwt');
+const util = require('./utils/util');
 
 // error handler
 onerror(app)
@@ -30,10 +33,23 @@ app.use(views(__dirname + '/views', {
 app.use(async (ctx, next) => {
   log4js.info(`get params:${JSON.stringify(ctx.request.query)}`)
   log4js.info(`post params:${JSON.stringify(ctx.request.body)}`)
-  await next()
+  await next().catch((err)=>{
+    if(err.status == '401'){
+      ctx.status = 200;
+      ctx.body = util.fail('Token认证失败',util.CODE.AUTH_ERROR)
+    }else{
+      throw err
+    }
+  })
 })
+
+app.use(koajwt({secret:'imooc'}).unless({
+  path:[/^\/api\/users\/login/]
+}))
+
 // routes
-router.prefix("/api")
+router.prefix("/api");
+
 router.use(users.routes(),users.allowedMethods())
 app.use(router.routes(),router.allowedMethods())
 
